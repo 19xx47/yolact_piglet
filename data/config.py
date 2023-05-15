@@ -28,6 +28,12 @@ COLORS = ((244,  67,  54),
 MEANS = (103.94, 116.78, 123.68)
 STD   = (57.38, 57.12, 58.40)
 
+
+
+# These are in BGR and are for ImageNet
+MEANS = (103.94, 116.78, 123.68)
+STD   = (57.38, 57.12, 58.40)
+
 COCO_CLASSES = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
                 'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
                 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog',
@@ -62,7 +68,6 @@ class Config(object):
     """
     Holds the configuration for anything you want it to.
     To get the currently active config, call get_cfg().
-
     To use, just do cfg.x instead of cfg['x'].
     I made this because doing cfg['x'] all the time is dumb.
     """
@@ -824,3 +829,26 @@ def set_dataset(dataset_name:str):
     """ Sets the dataset of the current config. """
     cfg.dataset = eval(dataset_name)
     
+piglet = dataset_base.copy({
+'name': 'piglet',
+'train_images':'./images/',
+'train_info':'./annotations/instances_Train.json',
+'valid_images': './images/',
+'valid_info':   './annotations/instances_Validation.json',
+'class_names': ('piglet'),
+})
+
+yolact_darknet53_leaves_config = yolact_darknet53_config.copy({
+'name': "piglet_detection_cam1",
+'dataset': piglet,
+'num_classes': len(piglet.class_names) + 1,
+'max_size': 416,
+})
+
+yolact_im700_pig_config = yolact_im700_config.copy({
+'name': "piglet_detection_cam1",
+'dataset': piglet,
+'num_classes': len(piglet.class_names) + 1,
+'max_size': 416,
+})
+
