@@ -29,6 +29,18 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import cv2
 
+def eval(trained_model, config, score_threshold, top_k, video_multiframe, video, display_fps):
+    # Parse arguments
+    args = parse_args([
+        '--trained_model', trained_model,
+        '--config', config,
+        '--score_threshold', str(score_threshold),
+        '--top_k', str(top_k),
+        '--video_multiframe', str(video_multiframe),
+        '--video', video,
+        '--display_fps' if display_fps else ''
+    ])
+    
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
@@ -136,6 +148,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     """
     Note: If undo_transform=False then im_h and im_w are allowed to be None.
     """
+    
     if undo_transform:
         img_numpy = undo_image_transformation(img, w, h)
         img_gpu = torch.Tensor(img_numpy).cuda()
@@ -186,6 +199,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     # First, draw the masks on the GPU where we can do it really fast
     # Beware: very fast but possibly unintelligible mask-drawing code ahead
     # I wish I had access to OpenGL or Vulkan but alas, I guess Pytorch tensor operations will have to suffice
+    
     if args.display_masks and cfg.eval_mask_branch and num_dets_to_consider > 0:
         # After this, mask is of size [num_dets, h, w, 1]
         masks = masks[:num_dets_to_consider, :, :, None]
@@ -232,33 +246,44 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     
     if num_dets_to_consider == 0:
         return img_numpy
-
+    bbox_count = 0
+    rectangle_top_left = (750, 470)
+    rectangle_bottom_right = (1279, 719)
+    cv2.rectangle(img_numpy, rectangle_top_left, rectangle_bottom_right, (0, 0, 0), -1)
     if args.display_text or args.display_bboxes:
         for j in reversed(range(num_dets_to_consider)):
             x1, y1, x2, y2 = boxes[j, :]
+            # Check if the bbox intersects with the black rectangle
+            if not (x2 < rectangle_top_left[0] or x1 > rectangle_bottom_right[0] or 
+                    y2 < rectangle_top_left[1] or y1 > rectangle_bottom_right[1]):
+                # Skip this bbox, do not count or draw it
+                continue
             color = get_color(j)
             score = scores[j]
 
             if args.display_bboxes:
                 cv2.rectangle(img_numpy, (x1, y1), (x2, y2), color, 1)
-
+                bbox_count += 1
             if args.display_text:
                 _class = cfg.dataset.class_names[classes[j]]
                 text_str = '%s: %.2f' % (_class, score) if args.display_scores else _class
-
+                text_str_count = f"Bboxes: {bbox_count}"
                 font_face = cv2.FONT_HERSHEY_DUPLEX
                 font_scale = 0.6
                 font_thickness = 1
 
                 text_w, text_h = cv2.getTextSize(text_str, font_face, font_scale, font_thickness)[0]
+                text_pt_count = (10, img_numpy.shape[0] - 10)
+                font_scale_count = 1.0
 
                 text_pt = (x1, y1 - 3)
                 text_color = [255, 255, 255]
 
                 cv2.rectangle(img_numpy, (x1, y1), (x1 + text_w, y1 - text_h - 4), color, -1)
                 cv2.putText(img_numpy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
-            
-    
+        cv2.putText(img_numpy, text_str_count, text_pt_count, font_face, font_scale_count, text_color, font_thickness, cv2.LINE_AA)
+
+
     return img_numpy
 
 def prep_benchmark(dets_out, h, w):
